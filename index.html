@@ -59,7 +59,8 @@ document.getElementById("fileInput").addEventListener("change", function(e){
                 const status = (r["Ticket Status"] || "").trim();
 
                 // ✅ filter ไม่เอา Closed
-                if(status && status.toLowerCase() !== "closed"){
+                
+					if(status && status.toLowerCase() !== "closed" && status.toLowerCase() !== "cancel"){
 
                     count++;
 
