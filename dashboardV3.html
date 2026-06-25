@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Ticket Dashboard</title>
+
+<script src="papaparse.min.js"></script>
+
+<style>
+body { font-family: Arial; margin:20px; }
+.summary { font-size:20px; margin-bottom:10px; }
+table { border-collapse: collapse; width:100%; }
+th, td { border:1px solid #ccc; padding:8px; }
+th { background:#0078D4; color:#fff; }
+.await { background:#f39c12; color:#fff; padding:3px 6px; }
+</style>
+</head>
+
+<body>
+
+<h1>📊 Ticket Dashboard</h1>
+
+<input type="file" id="fileInput">
+
+<div class="summary">
+🔔 เคสค้าง: <span id="count">0</span> เคส
+</div>
+
+<table>
+<thead>
+<tr>
+<th>Ticket No</th>
+<th>Type</th>
+<th>Group</th>
+<th>Status</th>
+</tr>
+</thead>
+
+<tbody id="data"></tbody>
+</table>
+
+<script>
+document.getElementById("fileInput").addEventListener("change", function(e){
+    const file = e.target.files[0];
+
+    Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: function(results){
+
+            const rows = results.data;
+
+            let count = 0;
+            let html = "";
+
+            rows.forEach(r => {
+
+                const status = (r["Ticket Status"] || "").trim();
+
+                // ✅ filter ไม่เอา Closed
+                if(status && status.toLowerCase() !== "closed"){
+
+                    count++;
+
+                    html += `
+                    <tr>
+                        <td>${r["Ticket N0."] || "-"}</td>
+                        <td>${r["Ticket Type"] || "-"}</td>
+                        <td>${r["Group"] || "-"}</td>
+                        <td><span class="await">${status}</span></td>
+                    </tr>
+                    `;
+                }
+            });
+
+            document.getElementById("count").innerText = count;
+            document.getElementById("data").innerHTML = html;
+        }
+    });
+});
+</script>
+
+</body>
+</html>
