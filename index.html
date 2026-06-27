@@ -153,19 +153,21 @@ function updateDashboard(searchTerm) {
     // 3. อัปเดตตัวเลขรวมทั้งหมดลงหน้าเว็บ
     document.getElementById("count").innerText = count;
 
-    // 4. มัดรวมการแสดงผลนับแยกสถานะให้อยู่ในบรรทัดเดียวกัน
-    const summaryArray = [
-        `Open: ${statusCount["Open"]}`,
-        `Response To Customer: ${statusCount["Response To Customer"]}`,
-        `In Progress: ${statusCount["In Progress"]}`,
-        `Awaiting Customer: ${statusCount["Awaiting Customer"]}`,
-        `Awaiting Vendor: ${statusCount["Awaiting Vendor"]}`,
-        `Resolved: ${statusCount["Resolved"]}`,
-        `Fix In Progress: ${statusCount["Fix In Progress"]}`,
-        `Awaiting Vendor (Break Time): ${statusCount["Awaiting Vendor (Break Time)"]}`
-    ];
+    // 4. มัดรวมการแสดงผลนับแยกสถานะให้อยู่ในบรรทัดเดียวกัน (เฉพาะตัวที่มีค่ามากกว่า 0)
+const summaryArray = [];
 
-    document.getElementById("statusSummary").innerText = summaryArray.join(" เคส  ⚠️ ");
+for (const [statusName, value] of Object.entries(statusCount)) {
+    if (value > 0) {
+        summaryArray.push(`${statusName}: ${value}`);
+    }
+}
+
+// ถ้าไม่มีเคสค้างเลยให้แสดงข้อความแจ้ง หรือถ้ามีก็ต่อด้วยสัญลักษณ์ตามภาพกั้น
+if (summaryArray.length === 0) {
+    document.getElementById("statusSummary").innerText = "ไม่มีเคสค้างในระบบ";
+} else {
+    document.getElementById("statusSummary").innerText = summaryArray.join(" เคส  📌 ") + " เคส";
+}
     document.getElementById("data").innerHTML = html;
 }
 
