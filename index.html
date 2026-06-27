@@ -8,11 +8,33 @@
 
 <style>
 body { font-family: Arial; margin:20px; }
-.summary { font-size:20px; margin-bottom:10px; }
-table { border-collapse: collapse; width:100%; }
+.summary { font-size:18px; margin-bottom:15px; background: #f8f9fa; padding: 15px; border-radius: 6px; border-left: 5px solid #0078D4; }
+table { border-collapse: collapse; width:100%; margin-top: 10px; }
 th, td { border:1px solid #ccc; padding:8px; }
 th { background:#0078D4; color:#fff; }
-.await { background:#f39c12; color:#fff; padding:3px 6px; }
+
+/* ช่องค้นหา */
+.search-container { margin: 15px 0; }
+.search-input { padding: 8px 12px; width: 300px; font-size: 14px; border: 1px solid #ccc; border-radius: 4px; }
+
+/* Badge จัดการสีตามสถานะ */
+.badge {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #fff;
+  font-weight: bold;
+  display: inline-block;
+}
+.open { background: #3498db; }
+.response { background: #8e44ad; }
+.progress { background: #f39c12; }
+.await-customer { background: #e67e22; }
+.await-vendor { background: #d35400; }
+.resolved { background: #27ae60; }
+.fix { background: #c0392b; }
+.break { background: #7f8c8d; }
+.default-status { background: #7f8c8d; }
 </style>
 </head>
 
@@ -22,8 +44,13 @@ th { background:#0078D4; color:#fff; }
 
 <input type="file" id="fileInput">
 
+<div class="search-container">
+    <input type="text" id="searchInput" class="search-input" placeholder="🔍 ค้นหาทุกคอลัมน์ (พิมพ์แล้วกรองทันที)..." disabled>
+</div>
+
 <div class="summary">
-🔔 เคสค้าง: <span id="count">0</span> เคส
+    <strong>🔔 เคสค้างรวม: <span id="count">0</span> เคส</strong> <br>
+    <div id="statusSummary" style="margin-top: 5px; font-size: 15px; color: #555;">ยังไม่มีข้อมูลคดีค้าง</div>
 </div>
 
 <table>
@@ -41,46 +68,134 @@ th { background:#0078D4; color:#fff; }
 </table>
 
 <script>
+// 1. สร้างตัวแปร Global ไว้เก็บข้อมูลดิบจาก CSV เพื่อให้เรียกฟิลเตอร์ซ้ำเมื่อไหร่ก็ได้
+let globalRows = [];
+
+// ฟังก์ชันแมปข้อความสถานะให้ตรงกับ CSS Class ที่คุณเขียนไว้
+function getBadgeClass(status) {
+    switch(status) {
+        case "Open": return "open";
+        case "Response To Customer": return "response";
+        case "In Progress": return "progress";
+        case "Awaiting Customer": return "await-customer";
+        case "Awaiting Vendor": return "await-vendor";
+        case "Resolved": return "resolved";
+        case "Fix In Progress": return "fix";
+        case "Awaiting Vendor (Break Time)": return "break";
+        default: return "default-status";
+    }
+}
+
+// 2. ฟังก์ชันหลักในการกรองข้อมูลและวาดตาราง + สรุปยอดใหม่
+function updateDashboard(searchTerm) {
+    let count = 0;
+    
+    // รีเซ็ตตัวนับใหม่ทุกครั้งที่มีการฟิลเตอร์
+    const statusCount = {
+        "Open": 0,
+        "Response To Customer": 0,
+        "In Progress": 0,
+        "Awaiting Customer": 0,
+        "Awaiting Vendor": 0,
+        "Resolved": 0,
+        "Fix In Progress": 0,
+        "Awaiting Vendor (Break Time)": 0
+    };
+
+    let html = "";
+    const cleanSearch = searchTerm.toLowerCase().trim();
+
+    globalRows.forEach(r => {
+        const status = (r["Ticket Status"] || "").trim();
+
+        // เงื่อนไขหลัก: คัดกรองเอา Closed และ Cancel ออกไปก่อนตั้งแต่แรก
+        if(status && status.toLowerCase() !== "closed" && status.toLowerCase() !== "cancel"){
+            
+            // ดึงค่าจากคอลัมน์ต่างๆ มารวมกันเพื่อเช็กคำค้นหา (ค้นหาได้ทุกคอลัมน์)
+            const ticketNo = (r["Ticket N0."] || "").toString().toLowerCase();
+            const ticketType = (r["Ticket Type"] || "").toString().toLowerCase();
+            const group = (r["Group"] || "").toString().toLowerCase();
+            const openTime = (r["Open Time"] || "").toString().toLowerCase();
+            const statusLower = status.toLowerCase();
+
+            // ตรวจสอบว่ามีคำที่ค้นหาอยู่ในคอลัมน์ใดคอลัมน์หนึ่งหรือไม่
+            const matchesSearch = cleanSearch === "" || 
+                ticketNo.includes(cleanSearch) || 
+                ticketType.includes(cleanSearch) || 
+                group.includes(cleanSearch) || 
+                openTime.includes(cleanSearch) || 
+                statusLower.includes(cleanSearch);
+
+            if (matchesSearch) {
+                count++;
+
+                // นับแยกประเภทเฉพาะเคสที่ผ่านตัวกรองค้นหา
+                if(statusCount.hasOwnProperty(status)){
+                    statusCount[status]++;
+                }
+
+                // สลับคลาสสี Badge ตามชื่อสถานะจริงอัตโนมัติ
+                const badgeClass = getBadgeClass(status);
+
+                html += `
+                <tr>
+                    <td>${r["Ticket N0."] || "-"}</td>
+                    <td>${r["Ticket Type"] || "-"}</td>
+                    <td>${r["Group"] || "-"}</td>
+                    <td>${r["Open Time"] || "-"}</td>
+                    <td><span class="badge ${badgeClass}">${status}</span></td>
+                </tr>
+                `;
+            }
+        }
+    });
+
+    // 3. อัปเดตตัวเลขรวมทั้งหมดลงหน้าเว็บ
+    document.getElementById("count").innerText = count;
+
+    // 4. มัดรวมการแสดงผลนับแยกสถานะให้อยู่ในบรรทัดเดียวกัน
+    const summaryArray = [
+        `Open: ${statusCount["Open"]}`,
+        `Response To Customer: ${statusCount["Response To Customer"]}`,
+        `In Progress: ${statusCount["In Progress"]}`,
+        `Awaiting Customer: ${statusCount["Awaiting Customer"]}`,
+        `Awaiting Vendor: ${statusCount["Awaiting Vendor"]}`,
+        `Resolved: ${statusCount["Resolved"]}`,
+        `Fix In Progress: ${statusCount["Fix In Progress"]}`,
+        `Awaiting Vendor (Break Time): ${statusCount["Awaiting Vendor (Break Time)"]}`
+    ];
+
+    document.getElementById("statusSummary").innerText = summaryArray.join(" เคส  ⚠️ ");
+    document.getElementById("data").innerHTML = html;
+}
+
+// 5. ดักจับเหตุการณ์ตอนอัปโหลดไฟล์
 document.getElementById("fileInput").addEventListener("change", function(e){
     const file = e.target.files[0];
+    if(!file) return;
 
     Papa.parse(file, {
         header: true,
         skipEmptyLines: true,
         complete: function(results){
-
-            const rows = results.data;
-
-            let count = 0;
-            let html = "";
-
-            rows.forEach(r => {
-
-                const status = (r["Ticket Status"] || "").trim();
-
-                // ✅ filter ไม่เอา Closed
-                
-					if(status && status.toLowerCase() !== "closed" && status.toLowerCase() !== "cancel"){
-
-                    count++;
-
-                    html += `
-                    <tr>
-                        <td>${r["Ticket N0."] || "-"}</td>
-                        <td>${r["Ticket Type"] || "-"}</td>
-                        <td>${r["Group"] || "-"}</td>
-                        <td>${r["Open Time"] || "-"}</td>
-                        <td><span class="await">${status}</span></td>
-	
-                    </tr>
-                    `;
-                }
-            });
-
-            document.getElementById("count").innerText = count;
-            document.getElementById("data").innerHTML = html;
+            // บันทึกข้อมูลลงตัวแปรหลัก
+            globalRows = results.data; 
+            
+            // เปิดให้กล่องค้นหาพิมพ์ได้หลังจากอัปโหลดไฟล์แล้ว
+            const searchInput = document.getElementById("searchInput");
+            searchInput.disabled = false;
+            searchInput.value = ""; // เคลียร์ช่องค้นหาเก่าถ้ามี
+            
+            // สั่งรันอัปเดตกระดานครั้งแรก (แบบยังไม่มีคีย์เวิร์ดค้นหา)
+            updateDashboard("");
         }
     });
+});
+
+// 6. ดักจับเหตุการณ์พิมพ์ในช่องค้นหา (ทำงานทันทีในทุกๆ ตัวอักษรที่พิมพ์ โดยไม่ต้องอัปโหลดไฟล์ซ้ำ)
+document.getElementById("searchInput").addEventListener("input", function(e){
+    const searchTerm = e.target.value;
+    updateDashboard(searchTerm);
 });
 </script>
 
