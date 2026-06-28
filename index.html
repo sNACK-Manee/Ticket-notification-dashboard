@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <title>Mission: Close It!</title>
 
-<script src="papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 
 <style>
 body { font-family: Arial; margin:20px; }
@@ -40,7 +40,7 @@ th { background:#0078D4; color:#fff; }
 
 <body>
 
-<h1>📊 Mission: Close It! 🔥</h1>
+<h1>📊 Mission: Close It!🔥</h1>
 
 <input type="file" id="fileInput">
 
@@ -60,7 +60,7 @@ th { background:#0078D4; color:#fff; }
 <th>Type</th>
 <th>Group</th>
 <th>Open Time</th>
-<th>Status</th>
+<th>Age (ระยะเวลาค้าง)</th> <th>Status</th>
 </tr>
 </thead>
 
@@ -84,6 +84,26 @@ function getBadgeClass(status) {
         case "Awaiting Vendor (Break Time)": return "break";
         default: return "default-status";
     }
+}
+
+// ฟังก์ชันสำหรับคำนวณอายุเคส (นับจาก Open Time ถึง ปัจจุบัน)
+function calculateAge(openTimeStr) {
+    if (!openTimeStr) return "-";
+    
+    const openDate = new Date(openTimeStr);
+    // ตรวจสอบว่า Format วันที่ถูกต้องและแปลงได้จริงไหม
+    if (isNaN(openDate.getTime())) return "-"; 
+    
+    const now = new Date();
+    const diffMs = now - openDate; // ส่วนต่างเป็นมิลลิวินาที
+    
+    if (diffMs < 0) return "0 วัน 0 ชม."; // ป้องกันกรณีเวลาในไฟล์เป็นอนาคต
+    
+    const totalHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const days = Math.floor(totalHours / 24);
+    const hours = totalHours % 24;
+    
+    return `${days} วัน ${hours} ชม.`;
 }
 
 // 2. ฟังก์ชันหลักในการกรองข้อมูลและวาดตาราง + สรุปยอดใหม่
@@ -111,19 +131,24 @@ function updateDashboard(searchTerm) {
         // เงื่อนไขหลัก: คัดกรองเอา Closed และ Cancel ออกไปก่อนตั้งแต่แรก
         if(status && status.toLowerCase() !== "closed" && status.toLowerCase() !== "cancel"){
             
+            // คำนวณอายุเคสล่วงหน้าเพื่อนำไปใช้แสดงผลและใช้ในการค้นหา
+            const ageText = calculateAge(r["Open Time"]);
+
             // ดึงค่าจากคอลัมน์ต่างๆ มารวมกันเพื่อเช็กคำค้นหา (ค้นหาได้ทุกคอลัมน์)
             const ticketNo = (r["Ticket N0."] || "").toString().toLowerCase();
             const ticketType = (r["Ticket Type"] || "").toString().toLowerCase();
             const group = (r["Group"] || "").toString().toLowerCase();
             const openTime = (r["Open Time"] || "").toString().toLowerCase();
+            const ageLower = ageText.toLowerCase();
             const statusLower = status.toLowerCase();
 
-            // ตรวจสอบว่ามีคำที่ค้นหาอยู่ในคอลัมน์ใดคอลัมน์หนึ่งหรือไม่
+            // ตรวจสอบว่ามีคำที่ค้นหาอยู่ในคอลัมน์ใดคอลัมน์หนึ่งหรือไม่ (เพิ่มให้ค้นหาจากจำนวนวันได้ด้วย)
             const matchesSearch = cleanSearch === "" || 
                 ticketNo.includes(cleanSearch) || 
                 ticketType.includes(cleanSearch) || 
                 group.includes(cleanSearch) || 
                 openTime.includes(cleanSearch) || 
+                ageLower.includes(cleanSearch) ||
                 statusLower.includes(cleanSearch);
 
             if (matchesSearch) {
@@ -143,7 +168,7 @@ function updateDashboard(searchTerm) {
                     <td>${r["Ticket Type"] || "-"}</td>
                     <td>${r["Group"] || "-"}</td>
                     <td>${r["Open Time"] || "-"}</td>
-                    <td><span class="badge ${badgeClass}">${status}</span></td>
+                    <td><b>${ageText}</b></td> <td><span class="badge ${badgeClass}">${status}</span></td>
                 </tr>
                 `;
             }
@@ -154,20 +179,20 @@ function updateDashboard(searchTerm) {
     document.getElementById("count").innerText = count;
 
     // 4. มัดรวมการแสดงผลนับแยกสถานะให้อยู่ในบรรทัดเดียวกัน (เฉพาะตัวที่มีค่ามากกว่า 0)
-const summaryArray = [];
+    const summaryArray = [];
 
-for (const [statusName, value] of Object.entries(statusCount)) {
-    if (value > 0) {
-        summaryArray.push(`${statusName}: ${value}`);
+    for (const [statusName, value] of Object.entries(statusCount)) {
+        if (value > 0) {
+            summaryArray.push(`${statusName}: ${value}`);
+        }
     }
-}
 
-// ถ้าไม่มีเคสค้างเลยให้แสดงข้อความแจ้ง หรือถ้ามีก็ต่อด้วยสัญลักษณ์ตามภาพกั้น
-if (summaryArray.length === 0) {
-    document.getElementById("statusSummary").innerText = "ไม่มีเคสค้างในระบบ";
-} else {
-    document.getElementById("statusSummary").innerText = summaryArray.join(" เคส  📌 ") + " เคส";
-}
+    // ถ้าไม่มีเคสค้างเลยให้แสดงข้อความแจ้ง หรือถ้ามีก็ต่อด้วยสัญลักษณ์ตามภาพกั้น
+    if (summaryArray.length === 0) {
+        document.getElementById("statusSummary").innerText = "ไม่มีเคสค้างในระบบ";
+    } else {
+        document.getElementById("statusSummary").innerText = summaryArray.join(" เคส  📌 ") + " เคส";
+    }
     document.getElementById("data").innerHTML = html;
 }
 
