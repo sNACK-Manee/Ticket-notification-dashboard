@@ -58,9 +58,10 @@ th { background:#0078D4; color:#fff; }
 <tr>
 <th>Ticket No</th>
 <th>Type</th>
-<th>Group</th>
+<th>Subject</th> <th>Service</th>
 <th>Open Time</th>
-<th>Age (ระยะเวลาค้าง)</th> <th>Status</th>
+<th>Age (ระยะเวลาค้าง)</th> 
+<th>Status</th>
 </tr>
 </thead>
 
@@ -137,16 +138,19 @@ function updateDashboard(searchTerm) {
             // ดึงค่าจากคอลัมน์ต่างๆ มารวมกันเพื่อเช็กคำค้นหา (ค้นหาได้ทุกคอลัมน์)
             const ticketNo = (r["Ticket N0."] || "").toString().toLowerCase();
             const ticketType = (r["Ticket Type"] || "").toString().toLowerCase();
-            const group = (r["Group"] || "").toString().toLowerCase();
+            const subject = (r["Subject"] || "").toString().toLowerCase(); // ดึงค่า Subject สำหรับค้นหา
+            const service = (r["Service"] || "").toString().toLowerCase(); // ดึงค่า Service สำหรับค้นหา
+
             const openTime = (r["Open Time"] || "").toString().toLowerCase();
             const ageLower = ageText.toLowerCase();
             const statusLower = status.toLowerCase();
 
-            // ตรวจสอบว่ามีคำที่ค้นหาอยู่ในคอลัมน์ใดคอลัมน์หนึ่งหรือไม่ (เพิ่มให้ค้นหาจากจำนวนวันได้ด้วย)
+            // ตรวจสอบว่ามีคำที่ค้นหาอยู่ในคอลัมน์ใดคอลัมน์หนึ่งหรือไม่ (เพิ่ม Subject และ Service เข้าไปในเงื่อนไขด้วย)
             const matchesSearch = cleanSearch === "" || 
                 ticketNo.includes(cleanSearch) || 
                 ticketType.includes(cleanSearch) || 
-                group.includes(cleanSearch) || 
+                subject.includes(cleanSearch) || 
+                service.includes(cleanSearch) || 
                 openTime.includes(cleanSearch) || 
                 ageLower.includes(cleanSearch) ||
                 statusLower.includes(cleanSearch);
@@ -166,9 +170,10 @@ function updateDashboard(searchTerm) {
                 <tr>
                     <td>${r["Ticket N0."] || "-"}</td>
                     <td>${r["Ticket Type"] || "-"}</td>
-                    <td>${r["Group"] || "-"}</td>
+                    <td>${r["Subject"] || "-"}</td> <td>${r["Service"] || "-"}</td> 
                     <td>${r["Open Time"] || "-"}</td>
-                    <td><b>${ageText}</b></td> <td><span class="badge ${badgeClass}">${status}</span></td>
+                    <td><b>${ageText}</b></td> 
+                    <td><span class="badge ${badgeClass}">${status}</span></td>
                 </tr>
                 `;
             }
@@ -191,7 +196,7 @@ function updateDashboard(searchTerm) {
     if (summaryArray.length === 0) {
         document.getElementById("statusSummary").innerText = "ไม่มีเคสค้างในระบบ";
     } else {
-        document.getElementById("statusSummary").innerText = summaryArray.join(" เคส  📌 ") + " เคส";
+        document.getElementById("statusSummary").innerText = summaryArray.join(" เคส   📌 ") + " เคส";
     }
     document.getElementById("data").innerHTML = html;
 }
